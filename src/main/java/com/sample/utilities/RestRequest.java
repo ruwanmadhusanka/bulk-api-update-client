@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.logging.Level;
@@ -15,24 +16,29 @@ import java.util.logging.Logger;
 public class RestRequest {
 
     private static final Logger logger = Logger.getLogger(RestRequest.class.getName());
-    private final ConfigLoader configLoader;
     private final String publisherRestURL;
     private final String tokenURL;
     private final String clientRegistrationURL;
     private final String adminUsername;
     private final String adminPassword;
+    private final String tokenScopes;
     public static class ClientCredentials {
         public String clientId;
         public String clientSecret;
     }
 
     public RestRequest(ConfigLoader configLoader) {
-        this.configLoader = configLoader;
         this.publisherRestURL = configLoader.getProperty("PUBLISHER.REST.URL");
-        this.tokenURL = configLoader.getProperty("RESIDENTKM.TOKEN.URL");
-        this.clientRegistrationURL = configLoader.getProperty("RESIDENTKM.DCR.URL");
-        this.adminUsername = configLoader.getProperty("RESIDENTKM.USERNAME");
-        this.adminPassword = configLoader.getProperty("RESIDENTKM.PASSWORD");
+        this.tokenURL = configLoader.getProperty("TOKEN.URL");
+        this.clientRegistrationURL = configLoader.getProperty("DCR.URL");
+        this.adminUsername = configLoader.getProperty("ADMIN.USERNAME");
+        this.adminPassword = configLoader.getProperty("ADMIN.PASSWORD");
+        String scopesFromConfig = configLoader.getProperty("TOKEN.SCOPES");
+        if (scopesFromConfig == null || scopesFromConfig.trim().isEmpty()) {
+            this.tokenScopes = "apim:api_view";
+        } else {
+            this.tokenScopes = scopesFromConfig.trim();
+        }
     }
     public ClientCredentials registerClient() {
         ClientCredentials credentials = new ClientCredentials();
@@ -106,9 +112,14 @@ public class RestRequest {
 
             conn.setDoOutput(true);
 
-            String requestBody = "grant_type=password&username=" + adminUsername +
-                    "&password=" + adminPassword +
-                    "&scope=apim:api_view apim:api_create apim:api_manage";
+            String encodedUsername = URLEncoder.encode(adminUsername, StandardCharsets.UTF_8.name());
+            String encodedPassword = URLEncoder.encode(adminPassword, StandardCharsets.UTF_8.name());
+            String encodedScopes = URLEncoder.encode(tokenScopes, StandardCharsets.UTF_8.name());
+
+            String requestBody = "grant_type=password" +
+                    "&username=" + encodedUsername +
+                    "&password=" + encodedPassword +
+                    "&scope=" + encodedScopes;
 
             try (OutputStream os = conn.getOutputStream()) {
                 os.write(requestBody.getBytes(StandardCharsets.UTF_8));
@@ -155,7 +166,7 @@ public class RestRequest {
     public String getAPIDetails(String apiId, String accessToken) {
         try {
             String urlString = publisherRestURL + "/" + apiId;
-            logger.log(Level.INFO, "urlString: " + urlString);
+            logger.log(Level.FINE, "urlString: " + urlString);
 
             URL url = new URL(urlString);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
