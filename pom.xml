@@ -90,7 +90,7 @@
                             <archive>
                                 <manifest>
                                     <mainClass>
-                                    com.sample.updater.BasicAuthScanner
+                                        com.sample.updater.UpdateService
                                     </mainClass>
                                 </manifest>
                             </archive>
